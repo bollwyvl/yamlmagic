@@ -17,12 +17,14 @@ from IPython.core.magic import (
 import yaml
 
 
-ARG_RE = re.compile(r'(?P<var_name>[a-z][\da-z_]*)?', flags=re.I)
+ARG_RE = re.compile(r"(?P<var_name>[a-z][\da-z_]*)?", flags=re.I)
+
+__version__ = "0.1.0"
 
 
 @magics_class
 class YAMLMagics(Magics):
-    '''
+    """
     Write and load YAML in the IPython Notebook
 
     Example:
@@ -30,7 +32,7 @@ class YAMLMagics(Magics):
         %%yaml
         foo:
             bar: baz
-    '''
+    """
 
     def __init__(self, shell):
         super(YAMLMagics, self).__init__(shell)
@@ -49,7 +51,7 @@ class YAMLMagics(Magics):
                 ],
                 function(cc){
                     cc.CodeCell.options_default.highlight_modes.magic_yaml = {
-                        reg: ['^%%yaml']
+                        reg: ["^%%yaml"]
                     }
                 }
             );

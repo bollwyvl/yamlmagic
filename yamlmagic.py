@@ -1,27 +1,23 @@
-# -*- coding: ascii -*-
+# -*- coding: utf-8 -*-
 from __future__ import print_function
 
 import re
 
-from IPython import (
+from IPython import get_ipython
+from IPython.display import (
     display,
-    get_ipython,
+    Javascript,
 )
 from IPython.core.magic import (
-    register_cell_magic,
     Magics,
     magics_class,
     cell_magic,
 )
-from IPython.core.magic_arguments import (
-    argument,
-    magic_arguments,
-    parse_argstring,
-)
 
 import yaml
 
-arg_re = re.compile(r'(?P<var_name>[a-z][\da-z_]*)?', flags=re.I)
+
+ARG_RE = re.compile(r'(?P<var_name>[a-z][\da-z_]*)?', flags=re.I)
 
 
 @magics_class
@@ -44,25 +40,29 @@ class YAMLMagics(Magics):
         line = line.strip()
         opts = None
 
-        display.display(display.Javascript(
+        display(Javascript(
             """
-            require(["codemirror/mode/yaml/yaml"], function(){
-                console.log("yaml mode", element)
-                IPython.notebook.get_cells()
-                    .filter(function(c){return c.element.has(element).length; })[0]
-                    .code_mirror.setOption("mode", "yaml");
-            });
-            """,
-            ))
+            require(
+                [
+                    "notebook/js/codecell",
+                    "codemirror/mode/yaml/yaml"
+                ],
+                function(cc){
+                    cc.CodeCell.options_default.highlight_modes.magic_yaml = {
+                        reg: ['^%%yaml']
+                    }
+                }
+            );
+            """))
 
         if line:
-            opts = re.match(arg_re, line)
+            opts = re.match(ARG_RE, line)
             if opts:
                 opts = opts.groupdict()
 
         try:
             val = yaml.safe_load(cell)
-        except yaml.parser.ParserError as err:
+        except yaml.YAMLError as err:
             print(err)
             return
 
@@ -70,6 +70,7 @@ class YAMLMagics(Magics):
             get_ipython().user_ns[opts["var_name"]] = val
         else:
             return val
+
 
 def load_ipython_extension(ip):
     ip = get_ipython()

@@ -29,7 +29,7 @@ def read(fname):
 
 setup(
     name="yamlmagic",
-    version="0.1.0",
+    version="0.2.0",
     author="Nicholas Bollweg",
     author_email="nick.bollweg@gmail.com",
     description="a YAML magic for IPython notebooks",

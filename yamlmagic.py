@@ -1,23 +1,21 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 
-import re
-
 from IPython import get_ipython
 from IPython.display import (
     display,
     Javascript,
 )
+from IPython.core import magic_arguments
 from IPython.core.magic import (
     Magics,
     magics_class,
     cell_magic,
 )
+from IPython.utils.importstring import import_item
+
 
 import yaml
-
-
-ARG_RE = re.compile(r"(?P<var_name>[a-z][\da-z_]*)?", flags=re.I)
 
 __version__ = "0.1.0"
 
@@ -25,22 +23,35 @@ __version__ = "0.1.0"
 @magics_class
 class YAMLMagics(Magics):
     """
-    Write and load YAML in the IPython Notebook
+    Write and load YAML in the IPython Notebook. Uses SafeLoader by default.
 
     Example:
 
-        %%yaml
+        %%yaml x -lyaml.Loader
         foo:
             bar: baz
+
     """
 
     def __init__(self, shell):
         super(YAMLMagics, self).__init__(shell)
 
     @cell_magic
+    @magic_arguments.magic_arguments()
+    @magic_arguments.argument(
+        "var_name",
+        default=None,
+        nargs="?",
+        help="""Name of local variable to set to parsed value"""
+    )
+    @magic_arguments.argument(
+        "-l", "--loader",
+        default="yaml.SafeLoader",
+        help="""Dotted-notation class to use for loading"""
+    )
     def yaml(self, line, cell):
         line = line.strip()
-        opts = None
+        args = magic_arguments.parse_argstring(self.yaml, line)
 
         display(Javascript(
             """
@@ -57,19 +68,18 @@ class YAMLMagics(Magics):
             );
             """))
 
-        if line:
-            opts = re.match(ARG_RE, line)
-            if opts:
-                opts = opts.groupdict()
+        loader = get_ipython().user_global_ns.get(args.loader, None)
+        if loader is None:
+            loader = import_item(args.loader)
 
         try:
-            val = yaml.safe_load(cell)
+            val = yaml.load(cell, Loader=loader)
         except yaml.YAMLError as err:
             print(err)
             return
 
-        if opts and opts["var_name"]:
-            get_ipython().user_ns[opts["var_name"]] = val
+        if args.var_name is not None:
+            get_ipython().user_ns[args.var_name] = val
         else:
             return val
 

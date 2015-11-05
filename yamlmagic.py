@@ -36,10 +36,25 @@ class YAMLMagics(Magics):
             bar: baz
 
     """
-
     def __init__(self, shell):
         self.env = Environment()
         super(YAMLMagics, self).__init__(shell)
+
+    js_tmpl_set = """
+        (
+            window._yaml ? window._yaml : window._yaml = {}
+        )["{{ var_name }}"] = {{ value }};
+        """
+    js_nb_meta_set = """
+        (window.Jupyter &&
+            (window.Jupyter.notebook.metadata["{{ var_name }}"] = {{ value }})
+        );
+        """
+    js_nb_cell_meta_set = """
+        this.wrapper && (this.wrapper.parent().data()
+            .cell.metadata["{{ var_name }}"] = {{ value }}
+        );
+        """
 
     @cell_magic
     @magic_arguments.magic_arguments()
@@ -56,8 +71,27 @@ class YAMLMagics(Magics):
     )
     @magic_arguments.argument(
         "-j", "--javascript",
-        default=None,
+        default=False,
+        action="store_true",
         help="""set variable in window._yaml"""
+    )
+    @magic_arguments.argument(
+        "--javascript-tmpl",
+        default="",
+        type=str,
+        help="""set variable in window._yaml"""
+    )
+    @magic_arguments.argument(
+        "-m", "--meta",
+        default=False,
+        action="store_true",
+        help="""set variable in IPython.notebook.metadata"""
+    )
+    @magic_arguments.argument(
+        "-c", "--cell-meta",
+        default=False,
+        action="store_true",
+        help="""set variable in IPython.notebook.cells[current].metadata"""
     )
     def yaml(self, line, cell):
         line = line.strip()
@@ -88,14 +122,31 @@ class YAMLMagics(Magics):
             print(err)
             return
 
-        if args.javascript is not None:
-            tmpl = self.env.from_string("""
-            (window._yaml ? window._yaml : window._yaml = {}
-                )["{{ var }}"] = {{ json }};
-            """)
-            js = tmpl.render(
-                var=args.var_name,
-                json=json.dumps(val)
+        ctx = dict(
+            var_name=args.var_name,
+            value=json.dumps(val)
+        )
+
+        if None not in [args.javascript, args.javascript_tmpl]:
+            tmpl = args.javascript_tmpl or self.js_tmpl_set
+            tmpl = tmpl.strip()
+            if tmpl[0] in """"'""":
+                tmpl = tmpl[1:-1]
+            # argparse steals some braces
+            tmpl = tmpl.replace("{{{", "{{").replace("}}}", "}}")
+            tmpl = self.env.from_string(tmpl)
+            js = tmpl.render(**ctx)
+            display(Javascript(js))
+
+        if args.meta:
+            js = self.env.from_string(self.js_nb_meta_set).render(
+                **ctx
+            )
+            display(Javascript(js))
+
+        if args.cell_meta:
+            js = self.env.from_string(self.js_nb_cell_meta_set).render(
+                **ctx
             )
             display(Javascript(js))
 
